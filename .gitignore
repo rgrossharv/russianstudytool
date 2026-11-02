@@ -1,0 +1,4 @@
+.venv/
+.argos/
+__pycache__/
+data/translation-cache.sqlite3*
