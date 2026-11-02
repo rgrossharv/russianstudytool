@@ -95,6 +95,8 @@ class CachedTranslator:
         self.db.execute('CREATE TABLE IF NOT EXISTS translations (model TEXT NOT NULL, source TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(model, source))')
         self.pending=0
     def __call__(self, text):
+        # Decorative separators contain nothing for the model to translate.
+        if not any(char.isalnum() for char in text):return text
         key=hashlib.sha256(text.encode('utf8')).hexdigest()
         row=self.db.execute('SELECT result FROM translations WHERE model=? AND source=?',(self.model_id,key)).fetchone()
         if row is not None:return row[0]
@@ -112,6 +114,23 @@ class CachedTranslator:
 def pairs_from_points(points):
     return [[a[0],b[0],a[1],b[1]] for a,b in zip(points,points[1:])]
 
+def use_offline_stanza(model):
+    """Use the tokenizer bundled with an Argos package without refreshing its index."""
+    from argostranslate.sbd import StanzaSentencizer
+    sentencizer=getattr(model, 'sentencizer', None)
+    if not isinstance(sentencizer, StanzaSentencizer):return
+    import stanza
+    from argostranslate import settings
+    def lazy_pipeline():
+        if sentencizer.stanza_pipeline is None:
+            sentencizer.stanza_pipeline=stanza.Pipeline(
+                lang=sentencizer.stanza_lang_code,
+                dir=str(sentencizer.pkg.package_path / 'stanza'),
+                processors='tokenize', use_gpu=settings.device == 'cuda',
+                logging_level='WARNING', download_method=None)
+        return sentencizer.stanza_pipeline
+    sentencizer.lazy_pipeline=lazy_pipeline
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--translator',choices=['none','argos'],default='none',help='argos uses an installed Russian→English Argos model locally')
@@ -127,6 +146,7 @@ def main():
             model=language.get_translation(target) if language and target else None
             if not model:raise RuntimeError('Russian→English Argos model is not installed')
             direct_model=getattr(model,'underlying',model)
+            use_offline_stanza(direct_model)
             package=getattr(direct_model,'pkg',None)
             try: argos_version=importlib.metadata.version('argostranslate')
             except importlib.metadata.PackageNotFoundError: argos_version='unknown'

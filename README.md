@@ -38,7 +38,7 @@ The included passage pairs use text clues. To generate translation-based pairs, 
 ./scripts/setup_alignment.sh
 ```
 
-The script installs Argos Translate and its Russian-to-English model in this project, then starts a local alignment pass. The downloads need internet access; the alignment itself runs locally. A full pass can take a long time. Stop it with Ctrl-C and rerun the command to resume. To try only the first chapter, use `./scripts/setup_alignment.sh --chapter 1`.
+The script installs Argos Translate and its Russian-to-English model in this project, then starts a local alignment pass across all chapters. The downloads need internet access; once installed, subsequent runs can proceed offline. A full pass can take a long time, and the script prints each chapter as it finishes. Stop it with Ctrl-C and rerun the command to resume. Keep only one alignment pass running at a time. To try only the first chapter, use `./scripts/setup_alignment.sh --chapter 1`.
 
 Completed chapter pairs are saved in `data/alignment.js`, and individual translations are cached in `data/translation-cache.sqlite3`. The reader loads the saved pairs without running Argos. The next pass skips a completed chapter when its source text, alignment algorithm and model are unchanged; changed chapters are realigned, and their unchanged sentences use the translation cache. Reload `index.html` to see newly generated pairs. The app labels which method produced the current chapter. The `.venv` and `.argos` folders contain the local installation and model; keep them if you plan to resume a pass.
 

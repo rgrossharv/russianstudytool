@@ -19,6 +19,22 @@ function showView(view){ document.body.classList.toggle('reading',view==='read')
 document.querySelectorAll('.nav').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 $('.brand').addEventListener('click',e=>{e.preventDefault();showView('read')});
 let pageStarts = [{ru:0,en:0}], pageIndex = 0, pageEnd = null;
+const textSizes = [14, 16, 18, 20, 22];
+state.textSize = textSizes.includes(state.textSize) ? state.textSize : 16;
+function applyTextSize(){
+ document.documentElement.style.setProperty('--reader-size', `${state.textSize}px`);
+ $('#decreaseText').disabled=state.textSize===textSizes[0];
+ $('#increaseText').disabled=state.textSize===textSizes[textSizes.length-1];
+}
+function changeTextSize(direction){
+ const index=textSizes.indexOf(state.textSize)+direction;
+ if(index<0||index>=textSizes.length)return;
+ state.textSize=textSizes[index]; applyTextSize();
+ pageStarts=pageStarts.slice(0,pageIndex+1); renderChapter(); save();
+}
+applyTextSize();
+$('#decreaseText').addEventListener('click',()=>changeTextSize(-1));
+$('#increaseText').addEventListener('click',()=>changeTextSize(1));
 function chapterLength(paras){return paras.reduce((sum,p)=>sum+p.length,0)}
 function cutAtWord(paras, proposed, start){
  const text=paras.join(''); let end=Math.min(text.length,Math.floor(proposed));
@@ -92,6 +108,10 @@ function renderChapter(){
  const finished=pageEnd.ru>=chapterLength(chapter.ru)&&pageEnd.en>=chapterLength(chapter.en);
  $('#nextPage').disabled=finished&&state.chapter===chapters.length-1;
  $('#pageIndicator').textContent=`PAGE ${pageIndex+1}${finished?' · END OF CHAPTER':''}`;
+ const progress=Math.min(100,Math.round(pageEnd.ru/chapterLength(chapter.ru)*100))||0;
+ $('#progressFill').style.width=`${progress}%`;
+ $('.progress-track').setAttribute('aria-valuenow',progress);
+ $('#progressLabel').textContent=`${progress}% OF CHAPTER`;
  state.readingPage={chapter:state.chapter,starts:pageStarts,index:pageIndex,alignmentVersion:alignmentVersion()};save();
 }
 function changeChapter(n){ if(n<0||n>=chapters.length)return; state.chapter=n;pageStarts=[{ru:0,en:0}];pageIndex=0;renderChapter();window.scrollTo({top:0,behavior:'smooth'}); }
@@ -99,6 +119,11 @@ $('#chapterSelect').addEventListener('change',e=>changeChapter(Number(e.target.v
 $('#prevChapter').addEventListener('click',()=>changeChapter(state.chapter-1)); $('#nextChapter').addEventListener('click',()=>changeChapter(state.chapter+1));
 $('#prevPage').addEventListener('click',()=>{if(pageIndex>0){pageIndex--;renderChapter()}else if(state.chapter>0)changeChapter(state.chapter-1)});
 $('#nextPage').addEventListener('click',()=>{const c=chapters[state.chapter];if(pageEnd.ru>=chapterLength(c.ru)&&pageEnd.en>=chapterLength(c.en)){changeChapter(state.chapter+1);return;}pageStarts=pageStarts.slice(0,pageIndex+1);pageStarts.push(pageEnd);pageIndex++;renderChapter()});
+document.addEventListener('keydown',e=>{
+ if($('#readView').hidden || $('#saveDialog').open || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName) || e.target.isContentEditable)return;
+ if(e.key==='ArrowLeft' && !$('#prevPage').disabled){e.preventDefault();$('#prevPage').click();}
+ if(e.key==='ArrowRight' && !$('#nextPage').disabled){e.preventDefault();$('#nextPage').click();}
+});
 function mobileLanguage(lang){document.querySelector('.russian').classList.toggle('mobile-hidden',lang==='en');document.querySelector('.english').classList.toggle('mobile-hidden',lang==='ru');$('#showRussian').classList.toggle('active',lang==='ru');$('#showEnglish').classList.toggle('active',lang==='en');renderChapter()}
 mobileLanguage('ru');
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{pageStarts=pageStarts.slice(0,pageIndex+1);renderChapter()},150)});
